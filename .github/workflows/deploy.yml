@@ -27,7 +27,6 @@ jobs:
       # Install dependencies
       - name: Install dependencies
         run: composer install
-        working-directory: ./src
 
       # Set environment-specific variables for Dev and Production
       - name: Set environment variables
