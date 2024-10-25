@@ -1,4 +1,4 @@
-name: CI/CD Pipeline for Azure App Service with AWS RDS
+name: CI/CD Pipeline for Docker, Docker Hub, and Azure App Service
 
 on:
   push:
@@ -7,53 +7,64 @@ on:
       - main
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
-    # Use the environment based on the branch
-    environment: ${{ github.ref == 'refs/heads/dev' && 'development' || 'production' }}
-
     steps:
+      # Step 1: Check out the code
       - name: Checkout code
         uses: actions/checkout@v2
 
-      # Set up PHP environment
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+      # Step 2: Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
         with:
-          php-version: '7.4'
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Install dependencies
-      - name: Install dependencies
-        run: composer install
-
-      # Log in to Azure using Service Principal credentials
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ github.ref == 'refs/heads/dev' && secrets.AZURE_CREDENTIALS_DEV || secrets.AZURE_CREDENTIALS_PROD }}
-
-      # Set environment-specific database variables
+      # Step 3: Set environment-specific variables based on branch
       - name: Set environment-specific variables
+        id: env-vars
         run: |
           if [ "${{ github.ref }}" == "refs/heads/dev" ]; then
             echo "ENV=development" >> $GITHUB_ENV
             echo "DB_HOST=${{ secrets.DB_HOST_DEV }}" >> $GITHUB_ENV
             echo "DB_NAME=${{ secrets.DB_NAME_DEV }}" >> $GITHUB_ENV
+            echo "DB_USER=${{ secrets.DB_USER_DEV }}" >> $GITHUB_ENV
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD_DEV }}" >> $GITHUB_ENV
+            echo "AZURE_CREDENTIALS=${{ secrets.AZURE_CREDENTIALS_DEV }}" >> $GITHUB_ENV
+            echo "DOCKER_IMAGE=chiefofcode/eventmaster-hcp-dev:dev" >> $GITHUB_ENV
           elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "ENV=production" >> $GITHUB_ENV
             echo "DB_HOST=${{ secrets.DB_HOST_PROD }}" >> $GITHUB_ENV
             echo "DB_NAME=${{ secrets.DB_NAME_PROD }}" >> $GITHUB_ENV
+            echo "DB_USER=${{ secrets.DB_USER_PROD }}" >> $GITHUB_ENV
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }}" >> $GITHUB_ENV
+            echo "AZURE_CREDENTIALS=${{ secrets.AZURE_CREDENTIALS_PROD }}" >> $GITHUB_ENV
+            echo "DOCKER_IMAGE=chiefofcode/eventmaster-hcp-dev:prod" >> $GITHUB_ENV
           fi
 
-      # Deploy to Azure App Service
+      # Step 4: Build the Docker image with the correct tag
+      - name: Build Docker image
+        run: docker build -t ${{ env.DOCKER_IMAGE }} .
+
+      # Step 5: Push the Docker image to Docker Hub
+      - name: Push Docker image to Docker Hub
+        run: docker push ${{ env.DOCKER_IMAGE }}
+
+      # Step 6: Log in to Azure using Service Principal credentials
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      # Step 7: Deploy the Docker image to Azure App Service
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ github.ref == 'refs/heads/dev' && 'eventmaster-hcp-dev' || 'eventmaster-hcp-prod' }}
-          slot-name: 'production'
-          package: '.'
+          app-name: ${{ github.ref == 'refs/heads/dev' && 'your-app-dev' || 'your-app-prod' }}
+          images: ${{ env.DOCKER_IMAGE }}
 
-      # Display environment information
+      # Step 8: Show deployment details (optional for verification)
       - name: Show deployment details
-        run: echo "Deployed to environment $ENV with DB host $DB_HOST"
+        run: echo "Deployed to environment $ENV with Docker image ${{ env.DOCKER_IMAGE }}"
