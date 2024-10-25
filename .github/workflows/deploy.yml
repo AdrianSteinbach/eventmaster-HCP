@@ -1,0 +1,62 @@
+name: CI/CD Pipeline for Azure App Service with AWS RDS
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Use the environment based on the branch
+    environment: ${{ github.ref == 'refs/heads/dev' && 'development' || 'production' }}
+
+    steps:
+      # Check out the code from the repository
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Set up PHP environment
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: composer install
+
+      # Set environment-specific variables for Dev and Production
+      - name: Set environment variables
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/dev" ]; then
+            echo "ENV=development" >> $GITHUB_ENV
+            echo "DB_HOST=${{ secrets.DB_HOST_DEV }}" >> $GITHUB_ENV
+            echo "DB_NAME=${{ secrets.DB_NAME_DEV }}" >> $GITHUB_ENV
+            echo "AZURE_CREDENTIALS=${{ secrets.AZURE_CREDENTIALS_DEV }}" >> $GITHUB_ENV
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "ENV=production" >> $GITHUB_ENV
+            echo "DB_HOST=${{ secrets.DB_HOST_PROD }}" >> $GITHUB_ENV
+            echo "DB_NAME=${{ secrets.DB_NAME_PROD }}" >> $GITHUB_ENV
+            echo "AZURE_CREDENTIALS=${{ secrets.AZURE_CREDENTIALS_PROD }}" >> $GITHUB_ENV
+          fi
+
+      # Log in to Azure using Service Principal credentials
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      # Deploy to Azure App Service
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ github.ref == 'refs/heads/dev' && 'your-app-dev' || 'your-app-prod' }}
+          slot-name: 'production'
+          package: '.'
+
+      # Display environment information
+      - name: Show deployment details
+        run: echo "Deployed to environment $ENV with DB host $DB_HOST"
