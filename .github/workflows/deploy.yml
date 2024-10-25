@@ -50,7 +50,7 @@ jobs:
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ github.ref == 'refs/heads/dev' && 'your-app-dev' || 'your-app-prod' }}
+          app-name: ${{ github.ref == 'refs/heads/dev' && 'eventmaster-hcp-dev' || 'eventmaster-hcp-prod' }}
           slot-name: 'production'
           package: '.'
 
