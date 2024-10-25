@@ -1,5 +1,5 @@
 {
-    "name": "AdrianSteinbach/eventmaster-HCP",
+    "name": "adriansteinbach/eventmaster-hcp",
     "description": "A web application for event booking.",
     "type": "project",
     "require": {
