@@ -56,13 +56,13 @@ jobs:
       - name: Azure Login
         uses: azure/login@v1
         with:
-          creds: ${{ env.AZURE_CREDENTIALS }}
+          creds: ${{ github.ref == 'refs/heads/dev' && secrets.AZURE_CREDENTIALS_DEV || secrets.AZURE_CREDENTIALS_PROD }}
 
       # Step 7: Deploy the Docker image to Azure App Service
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ github.ref == 'refs/heads/dev' && 'your-app-dev' || 'your-app-prod' }}
+          app-name: ${{ github.ref == 'refs/heads/dev' && 'eventmaster-hcp-dev' || 'eventmaster-hcp-prod' }}
           images: ${{ env.DOCKER_IMAGE }}
 
       # Step 8: Show deployment details (optional for verification)
